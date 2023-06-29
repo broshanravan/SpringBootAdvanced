@@ -44,8 +44,40 @@ public class UserFilteringController {
             throw new UserNotFoundException("User with id " + userId + " not found" );
         }
 
+        //creating entityModel
+        EntityModel<FilteredUser> userEntityModel = EntityModel.of(filteredUser);
+
+        /* HATEOAS to add links for all users */
+        WebMvcLinkBuilder link = linkTo(methodOn(this.getClass()).getAllUserUnFilter());
+        userEntityModel.add(link.withRel("get-All-usernameFiltered-Users"));
+
+        //adding entityModer to mapping Jackson value (or wrapping mappingJacksonValue arrount it )
+        MappingJacksonValue mappingJacksonValue = new MappingJacksonValue(userEntityModel);
+
+        /* dynamic filtering code
+        * creating filter*/
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.serializeAllExcept("username");
+        SimpleBeanPropertyFilter filter2 = SimpleBeanPropertyFilter.serializeAllExcept("userId");
+
+        //adding filter to filter provider which may have many filters in it
+        FilterProvider filterProvider = new SimpleFilterProvider().addFilter("userFilter",filter).addFilter("userFilter",filter2);
+
+
+        //adding filter provider to wrapper class
+        mappingJacksonValue.setFilters(filterProvider);
+
+        return mappingJacksonValue;
+    }
+
+    @GetMapping("/noFilter/user/{userId}")
+    public MappingJacksonValue getUserByIdNoFilter(@PathVariable int userId){
+        FilteredUser filteredUser = new FilteredUser(userDao.getUserById(userId));
+        if(filteredUser == null){
+            throw new UserNotFoundException("User with id " + userId + " not found" );
+        }
+
         /* dynamic filtering code*/
-        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("firstName", "surname", "dateOfBrith", "password");
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.serializeAll();
 
         /* HATEOAS to add links for all users */
         WebMvcLinkBuilder link = linkTo(methodOn(this.getClass()).getAllUserUnFilter());
@@ -67,8 +99,7 @@ public class UserFilteringController {
         }
 
         /* dynamic filtering code*/
-        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("firstName", "surname", "dateOfBrith", "username");
-
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("userId","firstName", "surname", "dateOfBrith", "username");
 
         WebMvcLinkBuilder link = linkTo(methodOn(this.getClass()).getAllUserPwFilter());
 
@@ -86,6 +117,24 @@ public class UserFilteringController {
         return mappingJacksonValue;
     }
 
+    @GetMapping("/noFilter/allUsers")
+    public MappingJacksonValue getAllUserNoFilter(){
+        List<FilteredUser> filteredUsers = filterUsers(userDao.getAllUsers());
+
+        if(filteredUsers == null || filteredUsers.isEmpty()){
+            throw new UserNotFoundException("No filteredUsers found");
+        }
+
+        /* dynamic filtering code*/
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.serializeAll();
+        MappingJacksonValue mappingJacksonValue = new MappingJacksonValue(filteredUsers);
+        FilterProvider filterProvider = new SimpleFilterProvider().addFilter("userFilter",filter);
+        mappingJacksonValue.setFilters(filterProvider);
+
+        return mappingJacksonValue;
+    }
+
+
     @GetMapping("/pwFilter/allUsers")
     public MappingJacksonValue getAllUserPwFilter(){
         List<FilteredUser> filteredUsers = filterUsers(userDao.getAllUsers());
@@ -95,7 +144,7 @@ public class UserFilteringController {
         }
 
         /* dynamic filtering code*/
-        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("firstName", "surname", "dateOfBrith", "username");
+        SimpleBeanPropertyFilter filter = SimpleBeanPropertyFilter.filterOutAllExcept("userId","firstName", "surname", "dateOfBrith", "username");
         MappingJacksonValue mappingJacksonValue = new MappingJacksonValue(filteredUsers);
         FilterProvider filterProvider = new SimpleFilterProvider().addFilter("userFilter",filter);
         mappingJacksonValue.setFilters(filterProvider);
